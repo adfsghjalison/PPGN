@@ -2,6 +2,7 @@ import os
 import random
 import json
 import numpy as np
+from flags import BOS, EOS, UNK, DROPOUT
 
 def read_json(filename):
     with open(filename, 'r') as fp:
@@ -13,13 +14,13 @@ class utils():
     def __init__(self,args):
         self.batch_size = args.batch_size
         self.data_dir = args.data_dir
-        self.dict_path = args.dict_path
+        self.dict_path = os.path.join(self.data_dir, 'dict')
         self.sequence_length = args.sequence_length
-        self.word_id_dict = read_json(args.dict_path)
-        self.unknown_id =  self.word_id_dict['__UNK__']
-        self.droptout_id = self.word_id_dict['__DROPOUT__']
-        self.EOS_id = 0
-        self.BOS_id = 1
+        self.word_id_dict = read_json(self.dict_path)
+        self.BOS_id = BOS
+        self.EOS_id = EOS
+        self.unknown_id =  UNK
+        self.droptout_id = DROPOUT
 
 
         self.id_word_dict = [[]]*len(self.word_id_dict)

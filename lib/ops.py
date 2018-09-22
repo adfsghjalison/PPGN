@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 def batch_to_time_major(inputs,split_size):
     inputs = tf.split(inputs,  num_or_size_splits=split_size ,axis=1)
@@ -13,3 +14,4 @@ def weight_variable(shape,std_dev,name):
 def bias_variable(shape,name):
     initial = tf.constant_initializer(value = 0.0)
     return tf.get_variable(initializer = initial, shape = shape, name = name)
+

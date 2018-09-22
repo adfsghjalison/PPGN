@@ -16,22 +16,26 @@ class decoder():
         self.utils = utils
         self.vocab_size = len(self.utils.word_id_dict)
 
-        self.with_GloVe = args.with_GloVe
         self.EOS = self.utils.EOS_id
         self.BOS = self.utils.BOS_id
 
         self.soft = args.soft
         self.build_graph()
-        self.saver = tf.train.Saver(var_list={v.op.name : v for v in self.get_var_list()})
+
+        for i in self.get_var_list():
+          print i
+
+        #self.saver = tf.train.Saver(var_list={v.op.name : v for v in self.get_var_list()})
+        self.saver = tf.train.Saver(var_list = self.get_var_list())
         self.saver.restore(self.sess, tf.train.latest_checkpoint(self.model_dir))
         # original h code
         self.original_h = tf.placeholder(dtype=tf.float32, shape=(self.batch_size, self.latent_dim*2))
 
-
-    def get_output_projection(self):
-
+    def build_graph(self):
         with tf.variable_scope("embedding") as scope:
+
             init = tf.contrib.layers.xavier_initializer()
+
             weight_output = tf.get_variable(
                 name="weight_output",
                 shape=[self.latent_dim*2, self.vocab_size],
@@ -43,52 +47,43 @@ class decoder():
                 shape=[self.vocab_size],
                 initializer = tf.constant_initializer(value = 0.0),
                 trainable = False)
-            return weight_output , bias_output
+            
+        with tf.variable_scope("embedding", reuse = True) as scope:
+            # word embedding
+            word_vector_BOS_EOS = tf.get_variable(
+                name="word_vector_BOS_EOS",
+                shape=[2, self.word_embedding_dim],
+                initializer = init,
+                trainable = False)
 
-    def get_word_embedding(self):
-        init = tf.contrib.layers.xavier_initializer()
+            word_vector_UNK_DROPOUT = tf.get_variable(
+                name="word_vector_UNK_DROPOUT",
+                shape=[2, self.word_embedding_dim],
+                initializer = init,
+                trainable = False)
 
-        with tf.variable_scope("embedding") as scope:
-            scope.reuse_variables()
-            if self.with_GloVe :
-                pretrained_word_embd  = tf.get_variable(
-                    name="pretrained_word_embd",
-                    shape=[self.vocab_size-4, self.word_embedding_dim],
-                    initializer = init,
-                    trainable = False)
-                word_vector_EOS_BOS = tf.get_variable(
-                    name="word_vector_EOS_BOS",
-                    shape=[2, self.word_embedding_dim],
-                    initializer = init,
-                    trainable = False)
-                word_vector_UNK_DROPOUT = tf.get_variable(
-                    name="word_vector_UNK_DROPOUT",
-                    shape=[2, self.word_embedding_dim],
-                    initializer = init,
-                    trainable = False)
-                word_embedding_matrix = tf.concat([word_vector_EOS_BOS,pretrained_word_embd,word_vector_UNK_DROPOUT],0)
-            else:
-                word_embedding_matrix = tf.get_variable(
-                    name="word_embedding_matrix",
-                    shape=[self.vocab_size, self.word_embedding_dim],
-                    initializer = init,
-                    trainable = False)
-            return word_embedding_matrix
+            pretrained_word_embd  = tf.get_variable(
+                name="pretrained_word_embd",
+                shape=[self.vocab_size-4, self.word_embedding_dim],
+                initializer = init,
+                trainable = False)
 
-    def build_graph(self):
-        weight_output, bias_output = self.get_output_projection()
-        word_embedding_matrix = self.get_word_embedding()
+            word_embedding_matrix = tf.concat([word_vector_BOS_EOS, word_vector_UNK_DROPOUT, pretrained_word_embd], 0)
+
+        #weight_output, bias_output = self.get_output_projection()
+        #word_embedding_matrix = self.get_word_embedding()
         self.train_decoder_sentence = tf.placeholder(dtype=tf.int32, shape=(self.batch_size,self.sequence_length))
         BOS_slice = tf.ones([self.batch_size, 1], dtype=tf.int32)*self.BOS
         train_decoder_sentence = tf.concat([BOS_slice,self.train_decoder_sentence],axis=1)
+
+        self.encoder_state_c = tf.placeholder(dtype=tf.float32, shape=(self.batch_size, self.latent_dim*2))
+        self.sampled_encoder_state_h = tf.placeholder(dtype=tf.float32, shape=(self.batch_size, self.latent_dim*2))
+        encoder_state = tf.contrib.rnn.LSTMStateTuple(c=self.encoder_state_c, h=self.sampled_encoder_state_h)
+
         decoder_inputs = batch_to_time_major(train_decoder_sentence,self.sequence_length+1)
         decoder_inputs_embedded = batch_to_time_major(tf.nn.embedding_lookup(word_embedding_matrix,train_decoder_sentence),self.sequence_length+1)
 
-
         with tf.variable_scope("decoder") as scope:
-            self.encoder_state_c = tf.placeholder(dtype=tf.float32, shape=(self.batch_size, self.latent_dim*2))
-            self.sampled_encoder_state_h = tf.placeholder(dtype=tf.float32, shape=(self.batch_size, self.latent_dim*2))
-            encoder_state = tf.contrib.rnn.LSTMStateTuple(c=self.encoder_state_c, h=self.sampled_encoder_state_h)
             cell = tf.contrib.rnn.LSTMCell(num_units=self.latent_dim*2, state_is_tuple=True)
 
             def decoder():
@@ -132,5 +127,11 @@ class decoder():
             self.test_pred = tf.to_int32(test_pred,name='ToInt32')
 
     def get_var_list(self):
-            return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decoder') + tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='embedding')
+        var = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='decoder') + tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='embedding')
+        # decoder/lstm_cell/kernel => decoder/rnn_decoder/lstm_cell/kernel
+        if self.soft :
+          v_list = {v.op.name.replace('decoder/lstm_cell/', 'decoder/rnn_decoder/lstm_cell/') : v for v in var}
+        else:
+          v_list = {v.op.name : v for v in var}
 
+        return v_list

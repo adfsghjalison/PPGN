@@ -11,7 +11,6 @@ class encoder():
         self.model_dir = args.model_dir
         self.sequence_length = args.sequence_length
         self.word_embedding_dim = 300
-        self.with_GloVe = args.with_GloVe
         self.latent_dim = args.latent_dim
         self.batch_size = args.batch_size
         self.lstm_length = [self.sequence_length+1]*self.batch_size
@@ -28,29 +27,33 @@ class encoder():
         init = tf.contrib.layers.xavier_initializer()
 
         with tf.variable_scope("embedding") as scope:
-            if self.with_GloVe :
-                pretrained_word_embd  = tf.get_variable(
-                    name="pretrained_word_embd",
-                    shape=[self.vocab_size-4, self.word_embedding_dim],
-                    initializer = init,
-                    trainable = False)
-                word_vector_EOS_BOS = tf.get_variable(
-                    name="word_vector_EOS_BOS",
-                    shape=[2, self.word_embedding_dim],
-                    initializer = init,
-                    trainable = False)
-                word_vector_UNK_DROPOUT = tf.get_variable(
-                    name="word_vector_UNK_DROPOUT",
-                    shape=[2, self.word_embedding_dim],
-                    initializer = init,
-                    trainable = False)
-                word_embedding_matrix = tf.concat([word_vector_EOS_BOS,pretrained_word_embd,word_vector_UNK_DROPOUT],0)
-            else:
-                word_embedding_matrix = tf.get_variable(
+            word_vector_BOS_EOS = tf.get_variable(
+                name="word_vector_BOS_EOS",
+                shape=[2, self.word_embedding_dim],
+                initializer = init,
+                trainable = False)
+
+            word_vector_UNK_DROPOUT = tf.get_variable(
+                name="word_vector_UNK_DROPOUT",
+                shape=[2, self.word_embedding_dim],
+                initializer = init,
+                trainable = False)
+
+            pretrained_word_embd  = tf.get_variable(
+                name="pretrained_word_embd",
+                shape=[self.vocab_size-4, self.word_embedding_dim],
+                initializer = init,
+                trainable = False)
+
+            # word embedding
+            word_embedding_matrix = tf.concat([word_vector_BOS_EOS, word_vector_UNK_DROPOUT, pretrained_word_embd], 0)
+            """
+            word_embedding_matrix = tf.get_variable(
                     name="word_embedding_matrix",
                     shape=[self.vocab_size, self.word_embedding_dim],
                     initializer = init,
                     trainable = False)
+            """
             return word_embedding_matrix
 
     def build_graph(self):
