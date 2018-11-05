@@ -39,11 +39,11 @@ class utils():
 
 
     def sent2id(self,sent,l=None):
-        sent_list = sent.strip().split()
-        vec = np.zeros((self.sequence_length),dtype=np.int32)
+        sent_list = sent.decode('utf8').strip().split()
+        vec = np.ones((self.sequence_length),dtype=np.int32)
         sent_len = len(sent_list)
         unseen = 0
-        for i,word in enumerate(sent_list):
+        for i, word in enumerate(sent_list):
             if i==self.sequence_length:
                 break
             if word in self.word_id_dict:

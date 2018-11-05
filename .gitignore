@@ -1,6 +1,4 @@
-model_*
-abs*
-soft*
-exp*
+output/
+__pycache__/
 *.pyc
 

@@ -61,7 +61,7 @@ class encoder():
 
         with tf.variable_scope("input") as scope:
             self.inputs = tf.placeholder(dtype=tf.int32,shape=(self.batch_size,self.sequence_length))
-            inputs_embedded = tf.nn.embedding_lookup(word_embedding_matrix,self.inputs)
+            inputs_embedded = tf.nn.embedding_lookup(word_embedding_matrix, self.inputs)
 
         with tf.variable_scope("encoder") as scope:
             cell_fw = tf.contrib.rnn.LSTMCell(num_units=self.latent_dim, state_is_tuple=True)
@@ -99,6 +99,7 @@ class encoder():
             logvar = tf.matmul(self.state_h,w_logvar) + b_logvar
             var = tf.exp( 0.5 * logvar)
             noise = tf.random_normal(tf.shape(var))
+            #self.sampled_state_h = mean + tf.multiply(var,noise)
             self.sampled_state_h = mean #note remove noise  + tf.multiply(var,noise)
 
     def get_var_list(self):

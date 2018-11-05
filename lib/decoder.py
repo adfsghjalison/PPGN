@@ -81,7 +81,7 @@ class decoder():
         encoder_state = tf.contrib.rnn.LSTMStateTuple(c=self.encoder_state_c, h=self.sampled_encoder_state_h)
 
         decoder_inputs = batch_to_time_major(train_decoder_sentence,self.sequence_length+1)
-        decoder_inputs_embedded = batch_to_time_major(tf.nn.embedding_lookup(word_embedding_matrix,train_decoder_sentence),self.sequence_length+1)
+        #decoder_inputs_embedded = batch_to_time_major(tf.nn.embedding_lookup(word_embedding_matrix,train_decoder_sentence),self.sequence_length+1)
 
         with tf.variable_scope("decoder") as scope:
             cell = tf.contrib.rnn.LSTMCell(num_units=self.latent_dim*2, state_is_tuple=True)
