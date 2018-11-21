@@ -59,7 +59,6 @@ class discrim():
     def gradient(self):
         l2_loss = tf.reduce_mean(tf.squared_difference(self.decoder.sampled_encoder_state_h,self.decoder.original_h),axis=1)
         self.grads_sampled_h = tf.gradients(self.score,self.decoder.sampled_encoder_state_h)[0]
-        #self.grads_sampled_h = tf.gradients(self.score,self.decoder.encoder_state_c)[0]
         self.l2_grads_sampled_h = tf.gradients(l2_loss,self.decoder.sampled_encoder_state_h)[0]
 
     def decode_get_grad(self,encoder_state_c,sampled_encoder_state_h,original_h):

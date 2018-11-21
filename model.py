@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 import os, sys, random
-import collections
+import collections, csv
 
 from utils import utils
 from lib.ops import *
@@ -18,7 +18,7 @@ class sentiment_dialogue():
         self.sess = sess
 
         # test file
-        self.test_file = os.path.join(args.data_dir, 'source_test')
+        self.test_file = os.path.join(args.data_dir, 'source_test_chatbot')
         self.test_output = args.out
         self.utils = utils(args)
         self.encoder = encoder(args,self.sess,self.utils)
@@ -27,27 +27,39 @@ class sentiment_dialogue():
         self.batch_size = args.batch_size
         self.sequence_length = args.sequence_length
         self.move_step = 50
+        self.pos = args.pos
+        self.g = args.g
+        self.l2 = args.l2
 
-    def test(self): 
+    def test(self):
+
+
+        print('g: {}    l2: {}    pos: {}'.format(self.g, self.l2, self.pos))
+
         count = 0
+        con_batch = []
         sentence_batch = []
-        fo = open(self.test_output, 'w')
+        cf = open(self.test_output, 'w')
+        writer = csv.writer(cf, delimiter='|')
+        writer.writerow(['context', 'utterance'])
         with open(self.test_file, 'r') as input_f:
             sentence = input_f.readline()
             while(sentence):
-                s, sentence = sentence.strip().split(' +++$+++ ')
+                con, sentence = sentence.strip().split(' +++$+++ ')
                 count += 1
+                con_batch.append(''.join(con.split()))
                 sentence_batch.append(sentence)
                 if count == self.batch_size:
-                    self.max_activation_batch(sentence_batch, fo)
+                    self.max_activation_batch(con_batch, sentence_batch, writer)
+                    del con_batch[:]
                     del sentence_batch[:]
                     count = 0
                 #if count > 10 :
                 #    break
                 sentence = input_f.readline()
             if count:
-                self.max_activation_batch(sentence_batch, fo)
-        fo.close()
+                self.max_activation_batch(con_batch, sentence_batch, writer)
+        cf.close()
 
     def stdin_test(self):
         sentence = 'Hi~'
@@ -59,7 +71,7 @@ class sentiment_dialogue():
             sentence_batch.append(sentence)
             self.max_activation_batch(sentence_batch)
 
-    def max_activation_batch(self, sentence_batch, fo):
+    def max_activation_batch(self, con_batch, sentence_batch, w):
         sent_num = len(sentence_batch)
         output_batch = [0]*sent_num
         sent_vec = np.zeros((self.batch_size,self.sequence_length),dtype=np.int32) 
@@ -82,7 +94,10 @@ class sentiment_dialogue():
         for i in range(self.move_step):
             senti_factor = [0.01/(np.max(np.absolute(g_h)) + 10**-20) for g_h in queue[0]["grads_sampled_h"]]
             senti_factor_tile = np.tile(np.expand_dims(senti_factor,axis=1),current_h_code[-1].shape[-1])
-            current_h_code = current_h_code + 400 * senti_factor_tile*queue[0]["grads_sampled_h"] - 50 * queue[0]["l2_grads_sampled_h"]
+            if self.pos:
+              current_h_code = current_h_code + self.g * senti_factor_tile*queue[0]["grads_sampled_h"] - self.l2 * queue[0]["l2_grads_sampled_h"]
+            else:
+              current_h_code = current_h_code - self.g * senti_factor_tile*queue[0]["grads_sampled_h"] - self.l2 * queue[0]["l2_grads_sampled_h"]
             
             #print(current_h_code[0][:5])
 
@@ -97,11 +112,13 @@ class sentiment_dialogue():
         for k in range(sent_num):
             if isinstance(output_batch[k],list) == 0:
                 output_batch[k] = queue[0]["pred"][k]
+            """
             print('original :')
             print(sentence_batch[k])
             print('pred :')
             print(self.utils.id2sent(output_batch[k]))
-            #print("score : {} -> {}".format(ori_score[k], queue[0]['score'][k]))
             print("")
-            fo.write('original :\n{}\npred :\n{}\n\n'.format(sentence_batch[k], self.utils.id2sent(output_batch[k]).encode('utf8')))
+            """
+            #print("score : {} -> {}".format(ori_score[k], queue[0]['score'][k]))
+            w.writerow([con_batch[k], self.utils.id2sent(output_batch[k]).encode('utf8')])
 
