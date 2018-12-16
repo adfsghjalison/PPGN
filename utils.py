@@ -59,7 +59,7 @@ class utils():
     def id2sent(self,ids):
         word_list = []
         for i in ids:
-            i == self.EOS_id:
+            if i == self.EOS_id:
               break
             word_list.append(self.id_word_dict[i])
         if word_list == []:
